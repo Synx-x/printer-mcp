@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e . pytest
+      - run: python -m pytest -q
+
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No tracked file is gitignored
+        run: |
+          found=$(git ls-files -i -c --exclude-standard)
+          if [ -n "$found" ]; then
+            echo "Tracked although .gitignore excludes them:"
+            echo "$found"
+            echo "Fix with: git rm -r --cached <path>"
+            exit 1
+          fi
+
+      - name: No machine-local absolute path in the tree
+        run: |
+          if grep -rn --exclude-dir=.git --exclude-dir=.venv \
+               -e '/home/[a-z]' -e '/srv/[a-z]' -e '/mnt/[a-z]' .; then
+            echo "Absolute local paths found. Use ~ or a placeholder."
+            exit 1
+          fi

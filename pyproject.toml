@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "printer-mcp"
+version = "0.1.0"
+description = "MCP server driving a Moonraker/Klipper 3D printer, configured entirely by JSON profile"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["mcp>=2.0"]
+
+[project.scripts]
+printer-mcp = "printer_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["printer_mcp"]

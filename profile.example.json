@@ -1,0 +1,74 @@
+{
+  "name": "Ender 3 V3 KE — sewing/kitchen parts",
+  "description": "Creality Ender 3 V3 KE on Klipper + Moonraker, 0.4 mm nozzle, OrcaSlicer 2.3.2 CLI. Fast-PLA and PETG profiles for functional parts. Paths here are the author's; replace every one with your own.",
+
+  "printer": {
+    "host": "192.168.1.200",
+    "moonraker_port": 7125,
+    "upload_port": 80,
+    "camera_port": 8080,
+    "camera_snapshot_path": "/?action=snapshot",
+    "camera_stream_path": "/?action=stream",
+    "mac": null,
+    "interface": null,
+    "alias_addresses": []
+  },
+
+  "machine": {
+    "nozzle_diameter": 0.4,
+    "build_volume": [220, 220, 245]
+  },
+
+  "slicer": {
+    "binary": "~/Applications/OrcaSlicer/orca-slicer.AppImage",
+    "env": {
+      "LD_LIBRARY_PATH": "~/Applications/OrcaSlicer/runtime/usr/lib"
+    },
+    "machine_profile": "~/.config/OrcaSlicer/user/default/machine/My Printer.json",
+    "profiles_dir": "~/3dprint/profiles",
+    "output_dir": "~/3dprint/gcode",
+    "extra_args": ["--arrange", "1"],
+    "timeout_s": 900
+  },
+
+  "materials": {
+    "pla-fast": {
+      "name": "PLA (high-speed profile)",
+      "bed_temp": 60,
+      "nozzle_temp": 215,
+      "max_volumetric_speed": 23,
+      "filament_profiles": ["~/3dprint/profiles/pla-fast-filament.json"]
+    },
+    "petg-black": {
+      "name": "CR-PETG Black",
+      "bed_temp": 70,
+      "nozzle_temp": 250,
+      "max_volumetric_speed": 9,
+      "filament_profiles": ["~/3dprint/profiles/petg-black-filament.json"]
+    }
+  },
+
+  "process_profiles": {
+    "fast-020": "~/3dprint/profiles/fast020.json",
+    "max-028": "~/3dprint/profiles/fast028.json",
+    "petg-020-supported": "~/3dprint/profiles/petg_sup.json"
+  },
+
+  "safety": {
+    "max_print_time_s": 28800,
+    "max_filament_cm3": 300,
+    "max_bed_temp_to_start": 45,
+    "refuse_while_printing": true,
+    "enforce_nozzle_match": true,
+    "verify_live_nozzle": true,
+    "enforce_safe_filenames": true
+  },
+
+  "notes": [
+    "The printer ignores ICMP. Test reachability with HTTP, never ping.",
+    "A static IP on a subnet the host is not on looks like an offline printer. The host routes the traffic to its default gateway instead. Add an address on the printer's subnet to the host interface so the printer becomes on-link, and record that in alias_addresses.",
+    "OrcaSlicer 2.3.2 refuses Bambu Studio 2.4 3MF files. Strip Metadata/*.config from the archive or bake the meshes to STL first.",
+    "A bed temp of 35 C in the stock Creality profile is a Bambu default leaking through. Set the bed type to Textured PEI and 60 C for PLA, 70 C for PETG.",
+    "Long unsupported spans in PLA drape and crack. Flip the part so the wide face sits on the bed, or the print will fail regardless of speed."
+  ]
+}
