@@ -1,6 +1,6 @@
 {
-  "name": "Ender 3 V3 KE — sewing/kitchen parts",
-  "description": "Creality Ender 3 V3 KE on Klipper + Moonraker, 0.4 mm nozzle, OrcaSlicer 2.3.2 CLI. Fast-PLA and PETG profiles for functional parts. Paths here are the author's; replace every one with your own.",
+  "name": "Ender 3 V3 KE - functional parts",
+  "description": "Creality Ender 3 V3 KE on Klipper + Moonraker, 0.4 mm nozzle, OrcaSlicer 2.3.2 CLI, PLA and PETG processes for functional parts. Every path below is an example; replace each one with your own layout.",
 
   "printer": {
     "host": "192.168.1.200",

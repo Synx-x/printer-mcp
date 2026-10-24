@@ -46,11 +46,12 @@ Keys the code does not recognize are ignored, so you can annotate freely.
 | `interface` | `null` | host interface for ARP scans and alias addresses |
 | `alias_addresses` | `[]` | CIDR list added to the interface at start |
 
-`alias_addresses` solves a specific and confusing failure. When the printer holds a
-static IP on a different subnet than the host, the host routes that traffic to its
-default gateway, so the printer looks offline while being physically present. Adding
-an address on the printer's subnet makes it on-link. This needs root, so the MCP
-does not apply it. The field records the intent for your own setup script.
+`alias_addresses` covers a network condition that reads as a dead printer. When
+the printer holds a static IP on a different subnet than the host, the host routes
+that traffic to its default gateway, so the printer looks offline while being
+physically present. Adding an address on the printer's subnet makes it on-link.
+This needs root, so the MCP does not apply it. The field records the intent for
+your own setup script.
 
 ## `machine`
 
@@ -116,8 +117,8 @@ These are the refusals. Tighten them for an unattended setup.
 | `verify_live_nozzle` | `true` | profile nozzle must equal the machine's |
 | `enforce_safe_filenames` | `true` | refuse non-ASCII filenames |
 
-`max_bed_temp_to_start` is the one that earns its keep. A finished part sits on a
-bed that reads 70 °C, and starting another job behind it crashes the head into the
+`max_bed_temp_to_start` is the check that protects the hardware. A finished part
+rests on a bed that reads 70 °C, and a start behind it drives the head into the
 old part. At 45 °C a PETG bed has cooled enough that the plate is clearable.
 
 ## `notes`
@@ -128,8 +129,8 @@ quirks on its first call instead of rediscovering them.
 ## A complete example
 
 See `profile.example.json` in the repository root. It targets a Creality Ender 3 V3
-KE with OrcaSlicer 2.3.2, and every value in it came from a real session. Every
-path in it uses `~`, so replace each one with your own layout.
+KE with OrcaSlicer 2.3.2. Every path in it uses `~`, so replace each one with your
+own layout.
 
 Every path field expands `~` at load time: `slicer.binary`,
 `slicer.machine_profile`, `slicer.profiles_dir`, `slicer.output_dir`,

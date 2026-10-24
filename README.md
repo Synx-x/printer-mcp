@@ -5,8 +5,27 @@ slice, upload, start, monitor. Every machine-specific value lives in one JSON
 profile, so pointing it at a different printer is a config change, not a code
 change.
 
-Built and verified against a Creality Ender 3 V3 KE on Klipper + Moonraker with
-OrcaSlicer 2.3.2. Nothing in the code names that printer.
+Targets Moonraker and Klipper with OrcaSlicer 2.3.x as the slicer. No module
+names a printer, a path, or a temperature.
+
+## What it looks like
+
+```
+> printer_status
+
+{ "ok": true,
+  "printer": { "state": "printing", "bed_temp": 70.0, "nozzle_temp": 250.0,
+               "progress": 0.31, "filename": "bracket-petg.gcode" } }
+
+> slice_model_tool(model_path="bracket.stl",
+                   process_profile="petg-020-supported",
+                   material="petg-black")
+
+{ "ok": true,
+  "gcode_path": "/tmp/printer-mcp-slice-xxxx/plate_1.gcode",
+  "facts": { "estimated_time_text": "1h 2m 31s", "filament_cm3": 21.37,
+             "nozzle_diameter": 0.4, "complete": true, "problems": [] } }
+```
 
 ## Install
 
@@ -79,16 +98,15 @@ Mutating, gated by the profile's safety checks:
 
 `slice_model_tool` takes `process_profile`, not `process`.
 
-## Why an MCP and not a skill or a pile of scripts
+## Why an MCP rather than a skill or a shell script
 
-Scripts already existed for this pipeline: `slice.sh`, `upload_and_print.py` and
-`start_print.py`. Scripts are advisory, so a model reads one and may skip a step.
-Scripts also cannot stop a failure inside a call, and two such failures happened
-on 2026-10-24. Scripts let a print start while a finished part sat on a bed at
-69 °C, and a 0.2 mm slice nearly went to a 0.4 mm machine.
+A skill and a shell script both describe work. The agent reads the description
+and decides whether to follow it. Nothing in either form can stop a call from
+completing.
 
-An MCP runs the check inside the tool call, so the refusal is a return value
-rather than an instruction, and the agent cannot talk past it.
+An MCP puts the check inside the tool call. The gate runs before hardware moves,
+and its verdict is a return value, so a refusal is the result of the call rather
+than advice about the call. An agent cannot skip it by not reading it.
 
 | Concern | Skill | Script | This MCP |
 |---|---|---|---|
@@ -96,21 +114,28 @@ rather than an instruction, and the agent cannot talk past it.
 | Checks run before hardware | no | no | yes |
 | One interface for any agent | no | no | yes |
 | Per-user config | prose | edit code | one JSON file |
+| Failure reported as data | no | no | yes, named check plus measured value |
 
 ## The safety checks
 
 Each check returns a named pass or refusal with a measured value, so a blocked
 run tells the agent exactly what to change.
 
-- `gcode_complete` — an `EXECUTABLE_BLOCK_END` marker exists. A truncated file hangs mid-move.
-- `print_time_within_limit` — declared duration against `max_print_time_s`.
-- `filament_within_limit` — declared volume against `max_filament_cm3`.
-- `nozzle_matches_profile` — the gcode's declared nozzle against the profile.
-- `nozzle_matches_live_machine` — the profile against the printer's actual config.
-- `printer_idle` — refuses to start over a running job.
-- `bed_cool` — refuses to start onto a hot bed, where a finished part is sitting.
-- `filename_safe` — firmware mangles spaces and unicode in gcode names.
-- `fits_build_volume` — model dimensions against the declared volume.
+| Check | Refuses when |
+|---|---|
+| `gcode_complete` | no `EXECUTABLE_BLOCK_END` marker exists, so a truncated file would hang mid-move |
+| `print_time_within_limit` | declared duration exceeds `max_print_time_s` |
+| `filament_within_limit` | declared volume exceeds `max_filament_cm3` |
+| `nozzle_matches_profile` | the gcode's declared nozzle differs from the profile |
+| `nozzle_matches_live_machine` | the profile differs from the printer's actual config |
+| `printer_idle` | a job is already running |
+| `bed_cool` | the bed is above `max_bed_temp_to_start`, where a finished part is sitting |
+| `filename_safe` | the name holds spaces or unicode, which firmware mangles |
+| `fits_build_volume` | model dimensions exceed the declared volume |
+
+The two nozzle checks and the bed check cover the failures that ruin hardware
+rather than material: a slice made for one nozzle size sent to another, and a
+start onto a plate still holding a finished part.
 
 ## Profile schema
 
@@ -129,42 +154,39 @@ Full reference in `docs/PROFILE.md`. The short version:
 }
 ```
 
-## Gotchas this encodes
+## Domain behaviour the design accounts for
 
-Each of these was a real failure on the reference machine, not theory.
+Each item below is a property of the pipeline that costs a print when handled
+wrong.
 
-- **Metadata sits at the end.** OrcaSlicer 2.3.2 writes its config block after the
-  executable block, near EOF. Scanning the first 64 KB of a real slice finds
-  nothing. The parser reads the head and the tail and merges them.
-- **The printer ignores ICMP.** `ping` fails while HTTP works. Test reachability
-  over TCP.
-- **A static IP on another subnet is invisible to a TCP sweep.** If the printer
-  holds `192.168.1.x` and the host sits on `192.168.2.x`, the host routes the
-  traffic to its ISP gateway and the printer looks offline. A raw ARP scan finds
-  it by MAC while TCP and ICMP do not. The profile's `alias_addresses` records
-  the host-side fix, which needs root, so the MCP does not apply it.
-- **Stock profiles carry Bambu defaults.** A 35 °C bed on a PEI plate loses a
-  three-hour PLA print. Set the bed type and the temperature explicitly.
-- **Bambu 2.4 3MF files will not load in OrcaSlicer 2.3.2.** Strip
-  `Metadata/*.config` from the archive, or bake the meshes to STL.
-- **A long unsupported span fails regardless of speed.** A 155 mm ceiling in PLA
-  drapes and cracks. Nozzle and acceleration tuning will not fix it. Flip the
-  part or add supports.
+- **OrcaSlicer writes its metadata after the executable block.** The config block
+  sits near EOF, not in a leading header, so a parser reading the first 64 KB of a
+  real slice finds nothing. `read_gcode_facts` reads the head and the tail and
+  merges them.
+- **The printer ignores ICMP.** `ping` fails while HTTP works. Reachability is a
+  TCP test.
+- **A static IP on another subnet is invisible to a TCP sweep.** When the printer
+  holds an address on a subnet the host is not on, the host routes that traffic to
+  its default gateway and the printer looks offline while being physically present.
+  A raw ARP scan finds it by MAC. `alias_addresses` records the host-side fix,
+  which needs root, so the MCP does not apply it.
+- **Stock profiles carry foreign defaults.** A 35 °C bed meant for a cool plate
+  loses a PLA print on textured PEI. Set the bed type and temperature explicitly.
+- **Newer 3MF archives will not load in an older OrcaSlicer.** A Bambu 2.4 archive
+  fails in 2.3.2. Strip `Metadata/*.config` from the archive, or bake the meshes to
+  STL.
+- **A long unsupported span fails regardless of speed.** A wide ceiling in PLA
+  drapes and cracks. Nozzle and acceleration tuning will not fix it. Flip the part
+  or add supports.
 
 ## Test
 
 ```bash
-env -u PYTEST_ADDOPTS .venv/bin/python -m pytest tests/ -q
+.venv/bin/python -m pytest tests/ -q
 ```
 
 31 tests, no printer needed. The suite runs every safety check against synthetic
 gcode.
-
-## Status
-
-- 31 tests passing, last run 2026-10-24.
-- Sliced, uploaded and started real prints on an Ender 3 V3 KE, last on 2026-10-24.
-- Refusal path verified live against a running job at 70 °C bed.
 
 ## Limitations
 
@@ -173,8 +195,7 @@ gcode.
   without one.
 - `measure_model` reads STL. 3MF measurement is not implemented.
 - No authentication. Run it on a trusted network.
-- `alias_addresses` is a note to your own setup script, not something the server
-  applies.
+- `alias_addresses` documents a host-side setup step. The server does not apply it.
 
 ## License
 

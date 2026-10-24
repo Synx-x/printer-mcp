@@ -1,10 +1,9 @@
 # Contributing
 
-The most confusing thing about this repo is that nothing you read names a
-printer. That is deliberate. `printer_mcp` is generic, and every machine fact
-arrives through one JSON profile. If you find yourself wanting to add a default
-temperature or a default path to a module, the change belongs in the profile
-schema instead.
+Nothing in this repository names a printer. That is the core design rule.
+`printer_mcp` is generic, and every machine fact arrives through one JSON
+profile. A default temperature or a default path does not belong in a module. It
+belongs in the profile schema.
 
 ## Setup
 
@@ -21,12 +20,10 @@ paths. Nothing here runs against real hardware until a profile points at one.
 ## Verify
 
 ```bash
-env -u PYTEST_ADDOPTS .venv/bin/python -m pytest tests/ -q
+.venv/bin/python -m pytest tests/ -q
 ```
 
-Expect `31 passed`. The suite needs no printer and no network. `env -u
-PYTEST_ADDOPTS` matters because a global pytest config can inject a plugin this
-repo does not install, and the run then dies on import.
+Expect `31 passed`. The suite needs no printer and no network.
 
 ## Run
 
